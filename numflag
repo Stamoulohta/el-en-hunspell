@@ -1,0 +1,54 @@
+#! /usr/bin/env python
+
+# This script replaces the ascii type flags of hunspell language files to numerical type.
+# This helps when compining language files and flags reach a greater number that what is 
+# easily readable in ascii.
+
+# XXX: This file is a hack and will not work reliably with any hunspell language files. It,
+# for example, doesn't check for the initial flag type so 'long' flag type files will
+# fail.
+
+FIRST_FLAG = 23
+AFF = "el_GR.UTF-8.aff"
+DIC = "el_GR.UTF-8.dic"
+
+def main():
+    fix_dic(fix_aff())
+
+def fix_aff():
+    ascii_flag = None
+    decimal_flag = FIRST_FLAG
+    assoc = []
+    newlines = []
+    with open(AFF, 'r') as orig_aff:
+        with open(AFF + ".n", 'w') as new_aff:
+            for line in orig_aff.readlines():
+                if any(s in line for s in ["SFX", "PFX"]):
+                    if ascii_flag is not line[4]:
+                        ascii_flag = line[4]
+                        decimal_flag += 1
+                        assoc.append((decimal_flag, ascii_flag))
+                    new_aff.write(line[:4] + str(decimal_flag) + line[5:])
+                else:
+                    new_aff.write(line)
+    return assoc
+
+def fix_dic(assoc):
+    with open(DIC, 'r') as orig_dic:
+        with open(DIC + ".n", 'w') as new_dic:
+            for line in orig_dic.readlines():
+                try:
+                    index = line.index('/')
+                    flags = line[index:]
+                    for dec, alpha in assoc:
+                        try:
+                            flags = flags[:flags.index(alpha)] + ',' + str(dec) + flags[flags.index(alpha) +1 :]
+                        except ValueError:
+                            continue
+                    flags = flags.replace("/,", "/")
+                    new_dic.write(line[:index] + flags)
+                except ValueError:
+                    # This line has no flags.
+                    new_dic.write(line)
+
+if __name__ == '__main__': main()
